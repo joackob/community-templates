@@ -33,6 +33,25 @@ The plugin spec is only written if no file under `lua/plugins/` mentions
 `noctalia` yet. If another spec already sets a `colorscheme`, the hook
 prints a warning so you can remove it; it never edits your existing files.
 
+## Contrast guard
+
+Generated palettes do not always give readable pairs (e.g. an amber
+`primary` on a beige light surface). On load, every highlight's
+foreground is checked against the background it is drawn on using the
+WCAG contrast ratio and, if it falls short, is mixed towards white or
+black until it meets the minimum, keeping its hue:
+
+- **4.5** for body text (code, menus, messages).
+- **3.0** for UI and accents (signs, icons, borders, line numbers,
+  comments, titles, dim labels).
+- Deliberately faint decoration (whitespace, indent guides, separators,
+  backdrops) is left alone.
+
+Selection-style overlays (Visual, CursorLine, diff, references) only set a
+background, so they are reported rather than changed. Run
+`:NoctaliaContrast` to see every pair that was adjusted or flagged on the
+last load.
+
 ## Requirements
 
 - A LazyVim config at `$XDG_CONFIG_HOME/nvim` (detected via

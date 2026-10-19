@@ -23,15 +23,20 @@ Trouble, lazy.nvim, telescope, …). lualine and bufferline use their
 
 ## How it stays in sync
 
-Noctalia sends `SIGUSR1` to running Neovim sessions after rewriting the
-colours file. The signal handler at the bottom of `colors/noctalia.lua`
-runs `:colorscheme noctalia` again, so open sessions pick up the new
-palette immediately and plugins listening to `ColorScheme` refresh too.
-If you have switched to another colourscheme, the signal is ignored.
+Every time Noctalia rewrites the colours file, the hook sends one
+`SIGUSR1` to running Neovim sessions. The signal handler at the bottom of
+`colors/noctalia.lua` runs `:colorscheme noctalia` again, so open
+sessions pick up the new palette immediately and plugins listening to
+`ColorScheme` refresh too. The handler is idempotent: if you have
+switched to another colourscheme, the signal is ignored.
 
-The plugin spec is only written if no file under `lua/plugins/` mentions
-`noctalia` yet. If another spec already sets a `colorscheme`, the hook
-prints a warning so you can remove it; it never edits your existing files.
+The hook never edits or overwrites your existing files:
+
+- If `lua/plugins/noctalia.lua` already exists, it is left untouched. If
+  it does not select `noctalia`, the hook prints a warning on stderr.
+- Otherwise, the spec is only written if no file under `lua/plugins/`
+  already selects `noctalia`. If another spec sets a `colorscheme`, the
+  hook prints a warning so you can remove it.
 
 ## Contrast guard
 

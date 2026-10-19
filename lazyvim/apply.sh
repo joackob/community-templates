@@ -6,22 +6,31 @@
 # creates in every starter config) guarantees LazyVim is set up before
 # this runs.
 #
-# Behaviour:
-#   - If no file under lua/plugins/ references noctalia, write
-#     lua/plugins/noctalia.lua with a minimal spec that sets LazyVim's
-#     colorscheme to "noctalia".
-#   - If any spec already references noctalia, do nothing (idempotent).
-#   - If another spec already sets a colorscheme, warn on stderr: lazy.nvim
-#     merges opts, so the user should pick one.
-#   - SIGUSR1 is sent to running Neovim sessions so they reload the palette.
+# Behaviour (existing files are never modified):
+#   - If lua/plugins/noctalia.lua already exists, it is left untouched. When
+#     it does not select noctalia, the conflict is reported on stderr.
+#   - Otherwise, if another spec already selects noctalia, do nothing.
+#   - Otherwise, write lua/plugins/noctalia.lua with a minimal spec that sets
+#     LazyVim's colorscheme to "noctalia", warning on stderr if another spec
+#     also sets a colorscheme (lazy.nvim merges opts, so the user should
+#     pick one).
+#   - One SIGUSR1 is sent to running Neovim sessions on every run so they
+#     reload the rewritten palette. The handler in colors/noctalia.lua is
+#     idempotent and ignores the signal when noctalia is not active.
 
 set -euo pipefail
 
 xdg_config="${XDG_CONFIG_HOME:-$HOME/.config}"
 plugins_dir="$xdg_config/nvim/lua/plugins"
 spec_file="$plugins_dir/noctalia.lua"
+selects_noctalia="^[^-]*colorscheme([[:space:]=(]*[\"']noctalia[\"']|[[:space:]]+noctalia)"
 
-if ! grep -rqs 'noctalia' "$plugins_dir"; then
+if [ -e "$spec_file" ]; then
+  if ! grep -qsE "$selects_noctalia" "$spec_file"; then
+    echo "lazyvim: $spec_file already exists and does not select noctalia; leaving it untouched." >&2
+    echo "lazyvim: set colorscheme = \"noctalia\" in it (or remove it) to use this theme." >&2
+  fi
+elif ! grep -rqsE "$selects_noctalia" "$plugins_dir"; then
   # Skip specs disabled the LazyVim-starter way (`if true then return {} end`).
   others=""
   while IFS= read -r f; do
@@ -32,7 +41,10 @@ if ! grep -rqs 'noctalia' "$plugins_dir"; then
     printf '%s' "$others" >&2
   fi
   mkdir -p "$plugins_dir"
-  cat >"$spec_file" <<'EOF'
+  # noclobber: never overwrite a spec that appeared in the meantime.
+  (
+    set -C
+    cat >"$spec_file" <<'EOF'
 return {
   {
     "LazyVim/LazyVim",
@@ -42,6 +54,7 @@ return {
   },
 }
 EOF
+  )
 fi
 
 pkill -SIGUSR1 -x nvim >/dev/null 2>&1 || true
